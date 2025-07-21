@@ -11,6 +11,7 @@ __pycache__/
 venv/
 env/
 .env
+.env.backup
 *.egg-info/
 dist/
 build/
@@ -60,3 +61,89 @@ tmp/
 *.db
 *.sqlite
 *.sqlite3
+
+# Large files that shouldn't be in version control
+*.pdf
+*.zip
+*.tar.gz
+*.rar
+
+# Build outputs
+dist/
+build/
+out/
+
+# Frontend build files
+frontend/dist/
+frontend/build/
+frontend/.vite/
+
+# Backend compiled files
+backend/dist/
+backend/build/
+
+# Test coverage
+coverage/
+.nyc_output/
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# Virtual environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# MacOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Linux
+*~
+
+# Backup files
+*.bak
+*.backup
+*.old
+*.orig
+
+# Cache files
+.cache/
+.parcel-cache/
+
+# Next.js
+.next/
+
+# Nuxt.js
+.nuxt/
+
+# Gatsby
+.cache/
+public/
+
+# Svelte
+.svelte-kit/
+
+# Editor directories and files
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Project specific
+backend/Ohip Benefits.pdf
+backend/.env.backup
+.env.backup

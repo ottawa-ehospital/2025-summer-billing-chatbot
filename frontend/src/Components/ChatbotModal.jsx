@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Box, IconButton, Modal, TextField, Button, Typography, Paper, Divider, Tooltip, Fab } from '@mui/material';
 import ChatIcon from '@mui/icons-material/Chat';
-import MicIcon from '@mui/icons-material/Mic';
+
 import KeyboardIcon from '@mui/icons-material/Keyboard';
 import RecordVoiceOverIcon from '@mui/icons-material/RecordVoiceOver';
 import CloseIcon from '@mui/icons-material/Close';
@@ -49,8 +49,8 @@ const ChatbotModal = () => {
   const audioQueueRef = useRef([]);
   const processedAudioIds = useRef(new Set());
   const mediaStreamRef = useRef(null);
-  const [isListening, setIsListening] = useState(false);
-  const [recognition, setRecognition] = useState(null);
+  const isProcessingAudioRef = useRef(false);
+
   const sessionReadyRef = useRef(false);
 
   const genMsgId = () => Date.now().toString(36) + Math.random().toString(36).slice(2);
@@ -74,17 +74,36 @@ const ChatbotModal = () => {
   };
 
   const stopCurrentAudio = () => {
+    console.log('Stopping all audio playback...');
+    
+    // Stop current audio source
     if (currentSourceRef.current) {
       try {
         currentSourceRef.current.stop();
         currentSourceRef.current = null;
+        console.log('Stopped current audio source');
       } catch (e) {
-        console.warn("Error stopping audio:", e);
+        console.warn("Error stopping audio source:", e);
       }
     }
+    
+    // Stop all scheduled audio in the audio context
+    if (audioContext && audioContext.state !== 'closed') {
+      try {
+        // Suspend the audio context to stop all audio immediately
+        audioContext.suspend();
+        console.log('Suspended audio context');
+      } catch (e) {
+        console.warn("Error suspending audio context:", e);
+      }
+    }
+    
+    // Clear all audio queues and processing state
     audioQueueRef.current = [];
-    isProcessingAudioRef.current = false;
     processedAudioIds.current.clear();
+    setIsPlayingAudio(false);
+    
+    console.log('All audio stopped');
   };
 
   // Removed old processOldAudioQueue - using unified processAudioQueue instead
@@ -141,41 +160,23 @@ const ChatbotModal = () => {
     setMessages([]);
   }, []);
 
-  // Initialize Web Speech API
+  // Cleanup when modal closes or component unmounts
   useEffect(() => {
-    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
-      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-      const recognitionInstance = new SpeechRecognition();
-      recognitionInstance.continuous = true;
-      recognitionInstance.interimResults = true;
-      recognitionInstance.lang = 'en-US';
-      
-      recognitionInstance.onresult = (event) => {
-        let finalTranscript = '';
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-          if (event.results[i].isFinal) {
-            finalTranscript += event.results[i][0].transcript;
-          }
-        }
-        if (finalTranscript) {
-          // Send to manual processing (same as text input)
-          sendMessage(finalTranscript.trim());
-          setIsListening(false);
-        }
-      };
-      
-      recognitionInstance.onerror = (event) => {
-        console.error('Speech recognition error:', event.error);
-        setIsListening(false);
-      };
-      
-      recognitionInstance.onend = () => {
-        setIsListening(false);
-      };
-      
-      setRecognition(recognitionInstance);
-    }
+    return () => {
+      if (isRealtime) {
+        stopVoiceInput();
+      }
+    };
   }, []);
+
+  // Stop voice input when modal closes
+  useEffect(() => {
+    if (!open && isRealtime) {
+      stopVoiceInput();
+    }
+  }, [open, isRealtime]);
+
+
 
   const startVoiceInput = async () => {
     try {
@@ -220,13 +221,48 @@ const ChatbotModal = () => {
   };
 
   const stopVoiceInput = () => {
+    console.log('Stopping voice input...');
+    
+    // Close WebSocket connection
     if (wsRef) {
       wsRef.close();
       setWsRef(null);
     }
-    cleanup();
+    
+    // Stop all audio playback immediately
+    stopCurrentAudio();
+    
+    // Clear audio queue and reset timing
+    audioQueueRef.current = [];
+    nextPlayTimeRef.current = 0;
+    setIsPlayingAudio(false);
+    
+    // Stop and close audio context
+    if (audioContext) {
+      if (audioContext.state !== 'closed') {
+        audioContext.close();
+      }
+      setAudioContext(null);
+    }
+    
+    // Stop microphone
+    if (mediaStreamRef.current) {
+      mediaStreamRef.current.getTracks().forEach(track => {
+        track.stop();
+        console.log('Stopped microphone track');
+      });
+      mediaStreamRef.current = null;
+    }
+    
+    // Clear all refs and state
+    processedAudioIds.current.clear();
+    currentSourceRef.current = null;
+    
+    // Update UI state
     setIsRealtime(false);
-    setRealtimeStatus('');
+    setRealtimeStatus('Voice chat stopped');
+    
+    console.log('Voice input stopped completely');
   };
 
   // Handle realtime voice messages
@@ -596,30 +632,8 @@ const ChatbotModal = () => {
                   sx={{ borderRadius: 3, background: '#fff' }}
                   inputProps={{ style: { borderRadius: 12 } }}
                 />
-                <Tooltip title="Speech-to-Text">
-                  <IconButton onClick={() => setInputMode('voice')}><MicIcon /></IconButton>
-                </Tooltip>
+
                 <Tooltip title="Speech-to-Speech">
-                  <IconButton onClick={() => setInputMode('realtime')}><RecordVoiceOverIcon /></IconButton>
-                </Tooltip>
-              </>
-            ) : inputMode === 'voice' ? (
-              <>
-                <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  {isListening ? (
-                    <Typography variant="body2" color="primary">Listening...</Typography>
-                  ) : (
-                    <Typography variant="body2" color="text.secondary">Click microphone for speech-to-text</Typography>
-                  )}
-                </Box>
-                <IconButton onClick={() => setInputMode('text')}><KeyboardIcon /></IconButton>
-                <IconButton 
-                  onClick={isListening ? stopVoiceInput : startVoiceInput}
-                  color={isListening ? "error" : "primary"}
-                >
-                  <MicIcon />
-                </IconButton>
-                <Tooltip title="Switch to Speech-to-Speech">
                   <IconButton onClick={() => setInputMode('realtime')}><RecordVoiceOverIcon /></IconButton>
                 </Tooltip>
               </>
@@ -647,15 +661,20 @@ const ChatbotModal = () => {
                   )}
                 </Box>
                 <IconButton onClick={() => setInputMode('text')}><KeyboardIcon /></IconButton>
-                <Tooltip title="Switch to Speech-to-Text">
-                  <IconButton onClick={() => setInputMode('voice')}><MicIcon /></IconButton>
+                <Tooltip title={isRealtime ? "Stop Voice Chat" : "Start Voice Chat"}>
+                  <IconButton 
+                    onClick={isRealtime ? stopVoiceInput : startVoiceInput}
+                    color={isRealtime ? "error" : "primary"}
+                    sx={{ 
+                      backgroundColor: isRealtime ? 'rgba(244, 67, 54, 0.1)' : 'rgba(25, 118, 210, 0.1)',
+                      '&:hover': {
+                        backgroundColor: isRealtime ? 'rgba(244, 67, 54, 0.2)' : 'rgba(25, 118, 210, 0.2)'
+                      }
+                    }}
+                  >
+                    <RecordVoiceOverIcon />
+                  </IconButton>
                 </Tooltip>
-                <IconButton 
-                  onClick={isRealtime ? stopVoiceInput : startVoiceInput}
-                  color={isRealtime ? "error" : "primary"}
-                >
-                  <RecordVoiceOverIcon />
-                </IconButton>
               </>
             )}
           </Box>

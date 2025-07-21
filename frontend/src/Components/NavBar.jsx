@@ -7,7 +7,7 @@ import Button from '@mui/material/Button';
 import IconButton from '@mui/material/IconButton';
 import MenuIcon from '@mui/icons-material/Menu';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
-import MicIcon from '@mui/icons-material/Mic';
+
 import { Link } from 'react-router-dom';
 
 
@@ -86,11 +86,7 @@ const NavBar = () => {
               <Typography sx={{ fontSize: '10px' }}>{userHospital?userHospital:""}</Typography>
               
     </div>
-              <Link to="/voice-chat" style={{ color: 'white', textDecoration: 'none', marginRight: '8px' }}>
-                <IconButton color="inherit" size="small">
-                  <MicIcon />
-                </IconButton>
-              </Link>
+
               <Button color="inherit" onClick={handleLogout}>Sign Out</Button>
             </div>
           ) : (
