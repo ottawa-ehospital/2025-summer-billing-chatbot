@@ -72,6 +72,27 @@ Frontend (React)
     └── OpenAI Realtime API
 ```
 
+### Project Structure
+
+```
+DTI6302-repository/
+├── frontend/                    # React frontend application
+├── backend/                     # Main backend services
+│   ├── main.py                 # FastAPI server
+│   ├── index.js               # Express server
+│   ├── services/              # Business logic
+│   └── data/                  # CSV data files
+├── realtime-voice-server/      # Standalone voice server
+│   ├── realtime_voice_server.py # WebSocket voice server
+│   ├── requirements.txt        # Python dependencies
+│   ├── Dockerfile             # Container configuration
+│   ├── docker-compose.yml     # Multi-container setup
+│   ├── test_client.py         # Python test client
+│   ├── test.html              # Web test interface
+│   └── data/                  # Voice server data
+└── README.md                  # Project documentation
+```
+
 ### Component Structure
 
 **Frontend Components**:
@@ -186,6 +207,11 @@ npm start
 
 **3. Start Real-time Voice Server**:
 ```bash
+# Option 1: Use the standalone voice server
+cd realtime-voice-server
+python realtime_voice_server.py
+
+# Option 2: Use the integrated voice server
 cd backend
 python realtime_voice_server.py
 ```
@@ -284,6 +310,36 @@ Messages:
 - Audio data (binary)
 - Control messages (JSON)
 ```
+
+## Realtime Voice Server
+
+The project includes a standalone realtime voice server located in the `realtime-voice-server/` directory. This server provides:
+
+### Features
+- **Real-time Voice Interaction**: Using OpenAI Realtime API
+- **Medical Knowledge Base**: Integrated OHIP service codes and pricing
+- **WebSocket Communication**: Multi-client support
+- **Automatic Service Search**: Smart matching of medical services
+
+### Quick Start
+```bash
+cd realtime-voice-server
+pip install -r requirements.txt
+cp env.example .env
+# Edit .env and add your OpenAI API key
+python realtime_voice_server.py
+```
+
+### Testing
+```bash
+# Python test client
+python test_client.py
+
+# Web test interface
+open test.html
+```
+
+For detailed documentation, see [realtime-voice-server/README.md](realtime-voice-server/README.md).
 
 ## Development
 
