@@ -5,19 +5,14 @@ import Toolbar from '@mui/material/Toolbar';
 import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
 import IconButton from '@mui/material/IconButton';
-import MenuIcon from '@mui/icons-material/Menu';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
-
 import { Link } from 'react-router-dom';
 
-
 const NavBar = () => {
-
   const [token, setToken] = useState(localStorage.getItem('token') || sessionStorage.getItem('token'));
   const [userEmail, setUserEmail] = useState(localStorage.getItem('userEmail') || sessionStorage.getItem('userEmail'));
   const [userName, setUserName] = useState(localStorage.getItem('userName') || sessionStorage.getItem('userName'));
   const [userHospital, setUserHospital] = useState(localStorage.getItem('userHospital') || sessionStorage.getItem('userHospital'));
-
 
   // Update token state when storage changes
   useEffect(() => {
@@ -32,10 +27,9 @@ const NavBar = () => {
     return () => window.removeEventListener('storage', handleStorageChange);
   }, []);
 
-    window.addEventListener('userHospitalUpdated', (event) => {
-      setUserHospital(event.detail);
-    });
-
+  window.addEventListener('userHospitalUpdated', (event) => {
+    setUserHospital(event.detail);
+  });
 
   const handleLogout = () => {
     localStorage.removeItem('token');
@@ -71,23 +65,17 @@ const NavBar = () => {
           </Typography>
           {token ? (
             <div style={{ display: 'flex', alignItems: 'center' }}>
-              {/* <Typography variant="body1" sx={{ marginRight: 2 }}>
-                {userEmail}
-              </Typography>
-              <Typography variant="body1" sx={{ marginRight: 2 }}>
-                {userName}
-              </Typography> */}
               <div style={{ display: 'flex', flexDirection: 'column', marginRight: '16px', textAlign: 'right' }}>
-              {/* <Typography variant="body1" color="">{userName}</Typography>
-              <Typography variant="body2">{userEmail}</Typography>
-              <Typography variant="body2" color="textSecondary">{userHospital}</Typography> */}
-              <Typography sx={{ fontSize: '16px' }}>{userName}</Typography>
-              {/* <Typography sx={{ fontSize: '12px' }}>{userEmail}</Typography> */}
-              <Typography sx={{ fontSize: '10px' }}>{userHospital?userHospital:""}</Typography>
-              
-    </div>
-
+                <Typography sx={{ fontSize: '16px' }}>{userName}</Typography>
+                <Typography sx={{ fontSize: '10px' }}>{userHospital ? userHospital : ""}</Typography>
+              </div>
               <Button color="inherit" onClick={handleLogout}>Sign Out</Button>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', alignItems: 'center' }}>
+              <Typography variant="body2" sx={{ color: 'white' }}>
+                Welcome to Medical AI Assistant
+              </Typography>
             </div>
           )}
         </Toolbar>
@@ -96,7 +84,4 @@ const NavBar = () => {
   )
 }
 
-export default NavBar
-
-
-
+export default NavBar 
