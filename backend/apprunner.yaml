@@ -1,0 +1,24 @@
+version: 1.0
+runtime: docker
+build:
+  commands:
+    build:
+      - echo "Using Dockerfile for build"
+run:
+  runtime-version: latest
+  command: ./start.sh
+  network:
+    port: 8080
+    env: PORT
+  env:
+    - name: PORT
+      value: "8080"
+    # Add your environment variables here
+    # - name: OPENAI_API_KEY
+    #   value: "your-api-key"
+    # - name: PINECONE_API_KEY
+    #   value: "your-pinecone-key"
+    # - name: PINECONE_INDEX_NAME
+    #   value: "medical-bills"
+    # - name: ASSISTANT_ID
+    #   value: "your-assistant-id" 

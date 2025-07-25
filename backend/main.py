@@ -31,14 +31,14 @@ from openai import OpenAI
 
 app = FastAPI(title="Medical Billing Assistant API")
 
-# Configure CORS
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# CORS handled by Nginx reverse proxy
+# app.add_middleware(
+#     CORSMiddleware,
+#     allow_origins=["*"],  
+#     allow_credentials=True,
+#     allow_methods=["*"],
+#     allow_headers=["*"],
+# )
 
 # Include routers
 app.include_router(bill.router, prefix="/api/bill", tags=["bill"])
@@ -333,5 +333,5 @@ async def pinecone_search(query: str, top_k: int = 1):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=3034)
 

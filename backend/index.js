@@ -10,7 +10,8 @@ const fs = require('fs');
 const { v4: uuidv4 } = require('uuid');
 
 const app = express()
-app.use(cors())
+// CORS handled by Nginx reverse proxy
+// app.use(cors())
 app.use(express.json())
 
 const PORT = 3033

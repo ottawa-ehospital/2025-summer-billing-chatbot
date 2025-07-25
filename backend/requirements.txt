@@ -17,7 +17,7 @@ langchain-community>=0.0.2
 langchain-pinecone>=0.0.1
 
 # ===== Vector Database =====
-pinecone-client>=2.2.4
+pinecone
 
 # ===== Data Validation & API =====
 pydantic>=2.7.0
