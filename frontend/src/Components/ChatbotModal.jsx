@@ -184,7 +184,7 @@ const ChatbotModal = () => {
       setIsRealtime(true);
       
       // Connect to our realtime voice server
-      const ws = new WebSocket('ws://localhost:3035');
+      const ws = new WebSocket(import.meta.env.VITE_WEBSOCKET_URL);
       setWsRef(ws);
       
       ws.onopen = () => {

@@ -7,12 +7,18 @@ export default defineConfig({
   base: '/', 
   server: {
     proxy: {
-      '/signup': 'http://localhost:3033',
-      '/api': 'http://localhost:3033'
+      '/signup': 'http://localhost:8080/express',
+      '/api': 'http://localhost:8080/express',
+      '/ws': {
+        target: 'ws://localhost:8080/ws',
+        ws: true
+      }
     }
   },
   define: {
-    'import.meta.env.VITE_NODE_API': JSON.stringify('http://localhost:3033'),
-    'import.meta.env.VITE_PYTHON_API': JSON.stringify('http://localhost:8000')
+    'import.meta.env.VITE_NODE_API': JSON.stringify('http://localhost:8080/express'),
+    'import.meta.env.VITE_PYTHON_API': JSON.stringify('http://localhost:8080/fast'),
+    'import.meta.env.VITE_WEBSOCKET_URL': JSON.stringify('ws://localhost:8080/ws')
   }
 })
+

@@ -13,7 +13,7 @@ const RealtimeVoiceChat = () => {
   const connectToServer = async () => {
     try {
       setError(null);
-      const ws = new WebSocket('ws://localhost:8001/ws');
+      const ws = new WebSocket(import.meta.env.VITE_WEBSOCKET_URL);
       
       ws.onopen = () => {
         console.log('Connected to realtime voice server');
