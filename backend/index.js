@@ -28,53 +28,7 @@ const authenticateToken = (req, res, next) => {
     });
 };
 
-// sign-in route
-app.post('/api/signin', async (req, res) => {
-    const { email, password } = req.body
 
-    try {
-        // fetch users from API and find match
-        const users = await getTable('users');
-        const user = users.find(u => u.email === email);
-
-        if (!user) {
-            return res.status(400).json({ message: "Invalid email or password" })
-        }
-
-        const isMatched = await bcrypt.compare(password, user.password)
-        if (!isMatched) {
-            return res.status(400).json({ message: "Invalid email or password" })
-        }
-
-        const token = jwt.sign({ id: user._id }, 'secretkey', { expiresIn: '1h' });
-
-        res.status(200).json({ token, user, message: "Success" })
-    } catch (error) {
-        res.status(500).json({ message: "Server error", error })
-    }
-})
-
-// sign-up route
-app.post('/api/signup', async (req, res) => {
-    const { name, email, password } = req.body
-
-    try {
-        const existingUser = await getTable('users').find(u => u.email === email);
-
-        if (existingUser) {
-            return res.status(400).json({ message: "Email already in use." })
-        }
-
-        const hasedPassword = await bcrypt.hash(password, 10)
-
-        const newUser = { name, email, password: hasedPassword };
-        await insertRow('users', newUser);
-
-        res.status(201).json({ message: "User registered successfully." })
-    } catch (error) {
-        res.status(500).json({ message: "Check all fileds.", error })
-    }
-})
 
 app.listen(PORT, () => {
     console.log(`Server is running at ${PORT}`)

@@ -1,8 +1,6 @@
 import React from 'react'
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 
-import SigninPage from './Components/SigninPage.jsx'
-import SignupPage from './Components/SignupPage.jsx'
 import Layout from './Components/Layout.jsx'
 import Dashboard from './Components/Dashboard.jsx'
 import BillDetails from './Components/BillDetails.jsx'
@@ -26,9 +24,6 @@ const App = () => {
         <Route path="/" element={<Navigate to="/dashboard" />} />
 
         {/* Public Routes */}
-        {/* <Route path="/signin" element={<Layout><SigninPage setIsAuthenticated={setIsAuthenticated} /></Layout>} /> */}
-        <Route path="/signin" element={<Layout><SigninPage /></Layout>} />
-        <Route path="/signup" element={<Layout><SignupPage /></Layout>} />
 
         {/* Protected Routes inside PrivateRoute */}
         <Route element={<PrivateRoute isAuthenticated={isAuthenticated} />}>

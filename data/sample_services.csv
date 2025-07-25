@@ -1,0 +1,11 @@
+Billing Code,Description,Charge $
+C003,General Assessment,$87.35
+C004,Minor Assessment,$45.30
+C005,Intermediate Assessment,$120.50
+X195,Chest X-ray,$45.30
+X200,Abdominal X-ray,$52.40
+E001,ECG/EKG,$35.20
+U001,Ultrasound,$125.00
+C001,Consultation,$95.00
+L001,Laboratory Test,$28.50
+M001,MRI Scan,$350.00 

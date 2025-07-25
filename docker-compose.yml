@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  realtime-voice-server:
+    build: .
+    ports:
+      - "3035:3035"
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import websockets; import asyncio; asyncio.run(websockets.connect('ws://localhost:3035'))"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s 

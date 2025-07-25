@@ -89,15 +89,6 @@ const NavBar = () => {
 
               <Button color="inherit" onClick={handleLogout}>Sign Out</Button>
             </div>
-          ) : (
-            <div className="d-flex">
-              <Link to="/signin" style={{ color: 'white', textDecoration: 'none' }}>
-                <Button color="inherit" >Sign In</Button>
-              </Link>
-              <Link to="/signup" style={{ color: 'white', textDecoration: 'none' }}>
-                <Button color="inherit" >Sign Up</Button>
-              </Link>
-            </div>
           )}
         </Toolbar>
       </AppBar>
