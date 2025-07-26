@@ -7,7 +7,7 @@ import sys
 from dotenv import load_dotenv
 import logging
 import csv
-from typing import List, Dict, Any, Optional
+import pandas as pd
 
 # Load environment variables
 load_dotenv()
@@ -25,92 +25,85 @@ if not OPENAI_API_KEY:
 OPENAI_REALTIME_URL = "wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2024-10-01"
 
 class SimpleRAGService:
-    """Simplified RAG service for the standalone voice server"""
-    
+    """Simple RAG service for medical billing data"""
     def __init__(self):
         self.services = []
-        self._load_services()
+        self.load_services()
     
-    def _load_services(self):
-        """Load services from CSV files"""
-        try:
-            # Look for CSV files in the data directory
-            data_dir = os.path.join(os.path.dirname(__file__), "data")
-            if os.path.exists(data_dir):
-                for filename in os.listdir(data_dir):
-                    if filename.startswith("dataset_schedule_of_benefits") and filename.endswith(".csv"):
-                        file_path = os.path.join(data_dir, filename)
-                        with open(file_path, encoding="utf-8-sig") as f:
-                            reader = csv.DictReader(f)
-                            for row in reader:
-                                billing_code = row.get("Billing Code") or row.get("CODE", "")
-                                if billing_code:
-                                    amount = (row.get("Charge $") or 
-                                            row.get("$") or 
-                                            row.get("T") or 
-                                            row.get("Charge $(provider)") or 
-                                            "")
-                                    
-                                    description = row.get("Description", "")
-                                    
-                                    if billing_code and (description or amount):
-                                        self.services.append({
-                                            "code": billing_code,
-                                            "name": description,
-                                            "fee": amount
-                                        })
-            logger.info(f"Loaded {len(self.services)} services from CSV files")
-        except Exception as e:
-            logger.error(f"Error loading services: {e}")
+    def load_services(self):
+        """Load services from CSV files in data directory"""
+        data_dir = os.path.join(os.path.dirname(__file__), 'data')
+        if not os.path.exists(data_dir):
+            logger.warning(f"Data directory not found: {data_dir}")
+            return
+        
+        for filename in os.listdir(data_dir):
+            if filename.endswith('.csv'):
+                filepath = os.path.join(data_dir, filename)
+                try:
+                    df = pd.read_csv(filepath)
+                    for _, row in df.iterrows():
+                        service = {
+                            'name': str(row.get('name', '')),
+                            'code': str(row.get('code', '')),
+                            'fee': str(row.get('fee', '')),
+                            'description': str(row.get('description', ''))
+                        }
+                        self.services.append(service)
+                    logger.info(f"Loaded {len(df)} services from {filename}")
+                except Exception as e:
+                    logger.error(f"Error loading {filename}: {e}")
+        
+        logger.info(f"Total services loaded: {len(self.services)}")
     
-    def search_services(self, query: str, top_k: int = 5) -> List[Dict[str, Any]]:
-        """Search services by query"""
+    def search_services(self, query, top_k=3):
+        """Simple keyword-based search"""
         query_lower = query.lower()
-        matches = []
+        results = []
         
         for service in self.services:
-            service_name = service.get('name', '').lower()
-            service_code = service.get('code', '').lower()
+            score = 0
+            name_lower = service['name'].lower()
+            code_lower = service['code'].lower()
+            desc_lower = service['description'].lower()
             
-            if (query_lower in service_name or 
-                query_lower in service_code or
-                any(word in service_name for word in query_lower.split())):
-                matches.append(service)
-        
-        # Sort by relevance (simple scoring)
-        matches.sort(key=lambda x: len([word for word in query_lower.split() if word in x['name'].lower()]), reverse=True)
-        return matches[:top_k]
-    
-    def process_query(self, query: str, top_k: int = 3) -> Dict[str, Any]:
-        """Process a query and return context"""
-        services = self.search_services(query, top_k)
-        
-        if services:
-            context_parts = []
-            for service in services:
-                context_parts.append(f"{service['name']} (code: {service['code']}, price: ${service['fee']})")
+            # Exact matches get higher scores
+            if query_lower in name_lower:
+                score += 10
+            if query_lower in code_lower:
+                score += 8
+            if query_lower in desc_lower:
+                score += 5
             
-            return {
-                "context": "; ".join(context_parts),
-                "services": services
-            }
+            # Partial matches
+            if any(word in name_lower for word in query_lower.split()):
+                score += 3
+            if any(word in code_lower for word in query_lower.split()):
+                score += 2
+            
+            if score > 0:
+                results.append((score, service))
         
-        return {"context": "", "services": []}
-
-# Initialize RAG service
-rag_service = SimpleRAGService()
+        # Sort by score and return top results
+        results.sort(key=lambda x: x[0], reverse=True)
+        return [service for _, service in results[:top_k]]
 
 class RealtimeVoiceServer:
     def __init__(self):
         self.clients = {}
+        self.rag_service = SimpleRAGService()
         
     async def get_service_info(self, query):
         """Get service information from knowledge base"""
         try:
-            result = rag_service.process_query(query, top_k=3)
-            if result.get('context'):
-                return f"From knowledge base: {result['context']}"
-            return f"Found service information for: {query}"
+            services = self.rag_service.search_services(query, top_k=3)
+            if services:
+                services_text = []
+                for svc in services:
+                    services_text.append(f"{svc['name']} (code: {svc['code']}, price: ${svc['fee']})")
+                context = f"Found services: {'; '.join(services_text)}"
+                return context
+            return f"No specific service information found for: {query}"
         except Exception as e:
             logger.error(f"Error querying knowledge base: {e}")
             return "Unable to retrieve service information"
@@ -149,17 +142,14 @@ class RealtimeVoiceServer:
         search_keywords = [
             'service code', 'billing code', 'assessment', 'consultation', 
             'x-ray', 'chest', 'general', 'procedure', 'surgery', 'treatment',
-            'test', 'examination', 'scan', 'ultrasound', 'mri', 'ct',
-            'blood', 'lab', 'laboratory', 'ekg', 'ecg', 'electrocardiogram'
+            'find', 'search', 'look up', 'what is', 'how much', 'fee', 'price'
         ]
-        
         message_lower = message_text.lower()
         return any(keyword in message_lower for keyword in search_keywords)
-    
+        
     async def register_client(self, websocket):
         """Register a new client"""
-        import uuid
-        client_id = str(uuid.uuid4())
+        client_id = id(websocket)
         self.clients[client_id] = {
             'websocket': websocket,
             'openai_ws': None,
@@ -167,9 +157,9 @@ class RealtimeVoiceServer:
         }
         logger.info(f"Registered client {client_id}")
         return client_id
-    
+        
     async def unregister_client(self, client_id):
-        """Unregister a client"""
+        """Unregister a client and cleanup"""
         if client_id in self.clients:
             client = self.clients[client_id]
             if client['openai_ws']:
@@ -179,30 +169,28 @@ class RealtimeVoiceServer:
     
     async def connect_to_openai(self, client_id):
         """Connect to OpenAI Realtime API"""
-        if client_id not in self.clients:
-            return False
-            
-        client = self.clients[client_id]
-        
         try:
-            # Connect to OpenAI
+            headers = {
+                "Authorization": f"Bearer {OPENAI_API_KEY}",
+                "OpenAI-Beta": "realtime=v1"
+            }
+            
             openai_ws = await websockets.connect(
                 OPENAI_REALTIME_URL,
-                extra_headers={
-                    "Authorization": f"Bearer {OPENAI_API_KEY}",
-                    "Content-Type": "application/json"
-                }
+                additional_headers=headers,
+                ping_interval=30,
+                ping_timeout=20
             )
             
-            client['openai_ws'] = openai_ws
+            self.clients[client_id]['openai_ws'] = openai_ws
+            logger.info(f"Connected to OpenAI for client {client_id}")
             
-            # Initialize session
-            await self.initialize_session(client_id)
-            
-            # Start handling OpenAI messages
+            # Start listening for OpenAI responses
             asyncio.create_task(self.handle_openai_messages(client_id, openai_ws))
             
-            logger.info(f"Connected to OpenAI for client {client_id}")
+            # Initialize session with medical billing context
+            await self.initialize_session(client_id)
+            
             return True
             
         except Exception as e:
@@ -210,113 +198,135 @@ class RealtimeVoiceServer:
             return False
     
     async def initialize_session(self, client_id):
-        """Initialize OpenAI session"""
-        if client_id not in self.clients:
-            return
-            
-        client = self.clients[client_id]
-        
-        try:
-            # Send session initialization
-            init_message = {
-                "type": "session.init",
-                "data": {
-                    "mode": "text",
-                    "voice": "alloy",
-                    "input_audio_format": "pcm16",
-                    "output_audio_format": "pcm16",
-                    "sample_rate": 24000,
-                    "chunk_length_s": 0.1,
-                    "enable_interruption": True,
-                    "enable_emojis": False,
-                    "enable_ducking": True,
-                    "ducking_activation_percentage": 0.1,
-                    "ducking_deactivation_percentage": 0.1,
-                    "ducking_ramp_in_ms": 100,
-                    "ducking_ramp_out_ms": 100,
-                    "ducking_volume_reduction_percentage": 0.1,
-                    "enable_web_search": False,
-                    "enable_tools": False,
-                    "tools": [],
-                    "system_prompt": """You are a helpful medical billing assistant. You help doctors and medical staff with billing questions and service code lookups. 
-
-When users ask about medical services, procedures, or billing codes, provide accurate information from the knowledge base. Be professional, concise, and helpful.
-
-Key capabilities:
-- Answer questions about medical billing codes and services
-- Provide pricing information for medical procedures
-- Help with OHIP billing questions
-- Assist with service code lookups
-
-Always be polite and professional in your responses."""
-                }
+        """Initialize the OpenAI session with medical billing context"""
+        session_config = {
+            "type": "session.update",
+            "session": {
+                "modalities": ["text", "audio"],
+                "instructions": (
+                    "You are a helpful medical billing assistant with access to a knowledge base. "
+                    "If this is the user's first message (like 'hi' or a greeting), respond warmly and ask how you can help with their billing needs. "
+                    "When the user describes medical services, I will provide you with context from the knowledge base. "
+                    "Use this knowledge base information to provide accurate service codes, names, and pricing. "
+                    "When you receive 'Context from knowledge base:' messages, use that exact information to answer the user's questions. "
+                    "Provide specific service codes and fees ONLY when they come from the knowledge base context. "
+                    "Be conversational and helpful - ask for one piece of information at a time if needed. "
+                    "Help users with OHIP billing, private billing, service codes, and medical procedures. "
+                    "Keep responses concise but informative. "
+                    "If no knowledge base context is provided, then refer users to check the current fee schedule."
+                ),
+                "voice": "alloy",
+                "input_audio_format": "pcm16",
+                "output_audio_format": "pcm16",
+                "input_audio_transcription": {
+                    "model": "whisper-1"
+                },
+                "turn_detection": {
+                    "type": "server_vad",
+                    "threshold": 0.5,
+                    "prefix_padding_ms": 300,
+                    "silence_duration_ms": 200
+                },
+                "tools": [],
+                "tool_choice": "auto",
+                "temperature": 0.8,
+                "max_response_output_tokens": 4096
             }
-            
-            await client['openai_ws'].send(json.dumps(init_message))
-            logger.info(f"Initialized session for client {client_id}")
-            
-        except Exception as e:
-            logger.error(f"Error initializing session for client {client_id}: {e}")
+        }
+        
+        client = self.clients[client_id]
+        if client['openai_ws']:
+            await client['openai_ws'].send(json.dumps(session_config))
+            logger.info(f"Session initialized for client {client_id}")
     
     async def handle_openai_messages(self, client_id, openai_ws):
-        """Handle messages from OpenAI"""
-        if client_id not in self.clients:
-            return
-            
-        client = self.clients[client_id]
-        
+        """Handle messages from OpenAI and forward to client"""
         try:
             async for message in openai_ws:
-                await self.process_openai_message(client_id, message)
+                if client_id not in self.clients:
+                    break
+                    
+                try:
+                    data = json.loads(message)
+                    await self.process_openai_message(client_id, data)
+                    
+                except json.JSONDecodeError:
+                    logger.warning(f"Invalid JSON from OpenAI for client {client_id}")
+                    
         except websockets.exceptions.ConnectionClosed:
             logger.info(f"OpenAI connection closed for client {client_id}")
         except Exception as e:
             logger.error(f"Error handling OpenAI messages for client {client_id}: {e}")
     
-    async def process_openai_message(self, client_id, message):
-        """Process a message from OpenAI"""
+    async def process_openai_message(self, client_id, data):
+        """Process and forward OpenAI messages to client"""
         if client_id not in self.clients:
             return
             
         client = self.clients[client_id]
+        message_type = data.get("type")
         
+        # Forward all messages to client
         try:
-            data = json.loads(message)
-            message_type = data.get("type", "")
-            
-            # Forward message to client
-            await client['websocket'].send(message)
-            
-            if message_type == "input_audio_transcript.interim":
-                transcript = data.get("transcript", "")
-                logger.info(f"Interim transcript for client {client_id}: {transcript}")
-                
-                # Check if we should search knowledge base
-                if await self.should_search_services(transcript):
-                    try:
-                        service_info = await self.get_service_info(transcript)
-                        # Send service info as a text message
-                        info_message = {
-                            "type": "text",
-                            "text": service_info
-                        }
-                        await client['websocket'].send(json.dumps(info_message))
-                        logger.info(f"Sent knowledge base context for client {client_id}")
-                    except Exception as e:
-                        logger.error(f"Error searching knowledge base for client {client_id}: {e}")
-                else:
-                    logger.info(f"No knowledge base search needed for: {transcript}")
-                
-            elif message_type == "response.audio_transcript.done":
-                transcript = data.get("transcript", "")
-                logger.info(f"AI response for client {client_id}: {transcript}")
-                
-            elif message_type == "error":
-                error_msg = data.get("error", {}).get("message", "Unknown error")
-                logger.error(f"OpenAI error for client {client_id}: {error_msg}")
-                
+            await client['websocket'].send(json.dumps(data))
         except Exception as e:
-            logger.error(f"Error processing OpenAI message for client {client_id}: {e}")
+            logger.error(f"Failed to send message to client {client_id}: {e}")
+            return
+        
+        # Handle specific message types
+        if message_type == "session.created":
+            client['session_id'] = data.get("session", {}).get("id")
+            logger.info(f"Session created for client {client_id}: {client['session_id']}")
+            
+        elif message_type == "input_audio_buffer.speech_started":
+            logger.debug(f"Speech started for client {client_id}")
+            
+        elif message_type == "input_audio_buffer.speech_stopped":
+            logger.debug(f"Speech stopped for client {client_id}")
+            
+        elif message_type == "conversation.item.input_audio_transcription.completed":
+            transcript = data.get("transcript", "")
+            logger.info(f"User transcript for client {client_id}: {transcript}")
+            
+            # Check if we need to search for service information
+            should_search = await self.should_search_services(transcript)
+            logger.info(f"Should search for '{transcript}': {should_search}")
+            
+            if should_search:
+                try:
+                    logger.info(f"Searching knowledge base for: {transcript}")
+                    service_info = await self.get_service_info(transcript)
+                    logger.info(f"Knowledge base result: {service_info}")
+                    
+                    # Send knowledge base context to AI
+                    context_message = {
+                        "type": "conversation.item.create",
+                        "item": {
+                            "type": "message",
+                            "role": "user",
+                            "content": [
+                                {
+                                    "type": "input_text",
+                                    "text": f"Context from knowledge base: {service_info}. Please use this information to provide accurate service codes and pricing information."
+                                }
+                            ]
+                        }
+                    }
+                    if client['openai_ws']:
+                        await client['openai_ws'].send(json.dumps(context_message))
+                        logger.info(f"Sent knowledge base context for client {client_id}")
+                except Exception as e:
+                    logger.error(f"Error searching knowledge base for client {client_id}: {e}")
+            else:
+                logger.info(f"No knowledge base search needed for: {transcript}")
+            
+        elif message_type == "response.audio_transcript.done":
+            transcript = data.get("transcript", "")
+            logger.info(f"AI response for client {client_id}: {transcript}")
+            
+        elif message_type == "error":
+            error_msg = data.get("error", {}).get("message", "Unknown error")
+            logger.error(f"OpenAI error for client {client_id}: {error_msg}")
     
     async def handle_client_message(self, client_id, message):
         """Handle messages from client and forward to OpenAI"""
