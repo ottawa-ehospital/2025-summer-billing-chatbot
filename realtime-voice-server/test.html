@@ -181,12 +181,30 @@
             if (!isConnected) return;
             
             const message = {
-                type: "text",
-                text: "Hello, this is a test message from the web client"
+                type: "conversation.item.create",
+                item: {
+                    type: "message",
+                    role: "user",
+                    content: [
+                        {
+                            type: "input_text",
+                            text: "Hello, this is a test message from the web client"
+                        }
+                    ]
+                }
             };
             
             ws.send(JSON.stringify(message));
             log(`Sent test message: ${JSON.stringify(message)}`);
+            
+            // Create response after a short delay
+            setTimeout(() => {
+                const responseMessage = {
+                    type: "response.create"
+                };
+                ws.send(JSON.stringify(responseMessage));
+                log(`Sent response.create: ${JSON.stringify(responseMessage)}`);
+            }, 100);
         }
 
         function sendMessage() {
@@ -197,13 +215,31 @@
             
             if (text) {
                 const message = {
-                    type: "text",
-                    text: text
+                    type: "conversation.item.create",
+                    item: {
+                        type: "message",
+                        role: "user",
+                        content: [
+                            {
+                                type: "input_text",
+                                text: text
+                            }
+                        ]
+                    }
                 };
                 
                 ws.send(JSON.stringify(message));
                 log(`Sent message: ${JSON.stringify(message)}`);
                 input.value = '';
+                
+                // Create response after a short delay
+                setTimeout(() => {
+                    const responseMessage = {
+                        type: "response.create"
+                    };
+                    ws.send(JSON.stringify(responseMessage));
+                    log(`Sent response.create: ${JSON.stringify(responseMessage)}`);
+                }, 100);
             }
         }
 
@@ -211,12 +247,30 @@
             if (!isConnected) return;
             
             const voiceQuery = {
-                type: "text",
-                text: "What is the billing code for general assessment and chest X-ray?"
+                type: "conversation.item.create",
+                item: {
+                    type: "message",
+                    role: "user",
+                    content: [
+                        {
+                            type: "input_text",
+                            text: "What is the billing code for general assessment and chest X-ray?"
+                        }
+                    ]
+                }
             };
             
             ws.send(JSON.stringify(voiceQuery));
             log(`Sent voice query: ${JSON.stringify(voiceQuery)}`);
+            
+            // Create response after a short delay
+            setTimeout(() => {
+                const responseMessage = {
+                    type: "response.create"
+                };
+                ws.send(JSON.stringify(responseMessage));
+                log(`Sent response.create: ${JSON.stringify(responseMessage)}`);
+            }, 100);
         }
 
         function handleKeyPress(event) {
