@@ -34,7 +34,7 @@ export default defineConfig({
       '/signup': 'https://zw6dauneqa.us-east-1.awsapprunner.com/express',
       '/api': 'https://zw6dauneqa.us-east-1.awsapprunner.com/express',
       '/ws': {
-        target: 'ws://localhost:3035',
+        target: 'ws://localhost:8080',
         ws: true
       }
     }
@@ -42,6 +42,6 @@ export default defineConfig({
   define: {
     'import.meta.env.VITE_NODE_API': JSON.stringify('https://zw6dauneqa.us-east-1.awsapprunner.com/express'),
     'import.meta.env.VITE_PYTHON_API': JSON.stringify('https://zw6dauneqa.us-east-1.awsapprunner.com/fast'),
-    'import.meta.env.VITE_WEBSOCKET_URL': JSON.stringify('ws://localhost:3035')
+    'import.meta.env.VITE_WEBSOCKET_URL': JSON.stringify('ws://localhost:8080')
   }
 })

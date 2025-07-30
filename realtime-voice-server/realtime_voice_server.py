@@ -4,13 +4,18 @@ import json
 import base64
 import os
 import sys
-from dotenv import load_dotenv
 import logging
-import csv
-import pandas as pd
 
-# Load environment variables
-load_dotenv()
+# For AWS, we'll assume OPENAI_API_KEY is set as an environment variable in the ECS task definition.
+# If using dotenv locally, you can keep it, but remove for production.
+
+# Add current directory to path for imports
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+try:
+    from enhanced_rag_service import enhanced_rag_service
+except ImportError:
+    logging.warning("Could not import enhanced_rag_service. Voice responses may not use knowledge base.")
+    enhanced_rag_service = None
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -24,86 +29,36 @@ if not OPENAI_API_KEY:
 
 OPENAI_REALTIME_URL = "wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2024-10-01"
 
-class SimpleRAGService:
-    """Simple RAG service for medical billing data"""
-    def __init__(self):
-        self.services = []
-        self.load_services()
-    
-    def load_services(self):
-        """Load services from CSV files in data directory"""
-        data_dir = os.path.join(os.path.dirname(__file__), 'data')
-        if not os.path.exists(data_dir):
-            logger.warning(f"Data directory not found: {data_dir}")
-            return
-        
-        for filename in os.listdir(data_dir):
-            if filename.endswith('.csv'):
-                filepath = os.path.join(data_dir, filename)
-                try:
-                    df = pd.read_csv(filepath)
-                    for _, row in df.iterrows():
-                        service = {
-                            'name': str(row.get('name', '')),
-                            'code': str(row.get('code', '')),
-                            'fee': str(row.get('fee', '')),
-                            'description': str(row.get('description', ''))
-                        }
-                        self.services.append(service)
-                    logger.info(f"Loaded {len(df)} services from {filename}")
-                except Exception as e:
-                    logger.error(f"Error loading {filename}: {e}")
-        
-        logger.info(f"Total services loaded: {len(self.services)}")
-    
-    def search_services(self, query, top_k=3):
-        """Simple keyword-based search"""
-        query_lower = query.lower()
-        results = []
-        
-        for service in self.services:
-            score = 0
-            name_lower = service['name'].lower()
-            code_lower = service['code'].lower()
-            desc_lower = service['description'].lower()
-            
-            # Exact matches get higher scores
-            if query_lower in name_lower:
-                score += 10
-            if query_lower in code_lower:
-                score += 8
-            if query_lower in desc_lower:
-                score += 5
-            
-            # Partial matches
-            if any(word in name_lower for word in query_lower.split()):
-                score += 3
-            if any(word in code_lower for word in query_lower.split()):
-                score += 2
-            
-            if score > 0:
-                results.append((score, service))
-        
-        # Sort by score and return top results
-        results.sort(key=lambda x: x[0], reverse=True)
-        return [service for _, service in results[:top_k]]
-
 class RealtimeVoiceServer:
     def __init__(self):
         self.clients = {}
-        self.rag_service = SimpleRAGService()
         
     async def get_service_info(self, query):
         """Get service information from knowledge base"""
         try:
-            services = self.rag_service.search_services(query, top_k=3)
-            if services:
-                services_text = []
-                for svc in services:
-                    services_text.append(f"{svc['name']} (code: {svc['code']}, price: ${svc['fee']})")
-                context = f"Found services: {'; '.join(services_text)}"
-                return context
-            return f"No specific service information found for: {query}"
+            if enhanced_rag_service:
+                # Check if query mentions multiple services
+                multiple_services = self._extract_multiple_services(query)
+                
+                if len(multiple_services) > 1:
+                    # Search for multiple services
+                    result = enhanced_rag_service.search_multiple_services(multiple_services, top_k=2)
+                    if result.get('services'):
+                        services_text = []
+                        for svc in result['services'][:3]:  # Limit to top 3 results
+                            services_text.append(f"{svc['name']} (code: {svc['code']}, price: ${svc['fee']})")
+                        context = f"Multiple services found: {'; '.join(services_text)}"
+                        return f"From knowledge base: {context}"
+                else:
+                    # Single service search
+                    result = enhanced_rag_service.process_query(query, top_k=3)
+                    if isinstance(result, dict):
+                        context = result.get('context', '')
+                        if context:
+                            return f"From knowledge base: {context}"
+                
+                return f"Found service information for: {query}"
+            return "Knowledge base not available"
         except Exception as e:
             logger.error(f"Error querying knowledge base: {e}")
             return "Unable to retrieve service information"
@@ -155,7 +110,7 @@ class RealtimeVoiceServer:
             'openai_ws': None,
             'session_id': None
         }
-        logger.info(f"Registered client {client_id}")
+        logger.info(f"Client {client_id} connected")
         return client_id
         
     async def unregister_client(self, client_id):
@@ -165,7 +120,7 @@ class RealtimeVoiceServer:
             if client['openai_ws']:
                 await client['openai_ws'].close()
             del self.clients[client_id]
-            logger.info(f"Unregistered client {client_id}")
+            logger.info(f"Client {client_id} disconnected")
     
     async def connect_to_openai(self, client_id):
         """Connect to OpenAI Realtime API"""
@@ -390,19 +345,19 @@ async def main():
     """Start the realtime voice server"""
     server = RealtimeVoiceServer()
     
-    logger.info("Starting Realtime Voice Server on ws://localhost:3035")
+    port = int(os.getenv('PORT', 8080))
+    logger.info(f"Starting Realtime Voice Server on ws://0.0.0.0:{port}")
     logger.info("Features: OpenAI Realtime API, Continuous conversation, Medical billing context")
     
     # Start WebSocket server
     async with websockets.serve(
         server.handle_client,
-        "localhost",
-        3035,
+        "0.0.0.0",
+        port,
         ping_interval=20,
         ping_timeout=10
     ):
         logger.info("Realtime Voice Server is running")
-        logger.info("Press Ctrl+C to stop")
         
         # Keep server running
         await asyncio.Future()
@@ -413,4 +368,4 @@ if __name__ == "__main__":
     except KeyboardInterrupt:
         logger.info("Server stopped by user")
     except Exception as e:
-        logger.error(f"Server error: {e}") 
+        logger.error(f"Server error: {e}")
